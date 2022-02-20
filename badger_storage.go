@@ -28,21 +28,30 @@ import (
 )
 
 type badgerStorage struct {
+	name string
 	db *badger.DB
 }
 
 func New(conf *BadgerConfig) (storage.ManagedStorage, error) {
+
+	if conf.Name == "" {
+		return nil, errors.New("empty storage name in config")
+	}
 
 	db, err := OpenDatabase(conf)
 	if err != nil {
 		return nil, wrapError(err)
 	}
 
-	return &badgerStorage{db}, nil
+	return &badgerStorage{name: conf.Name, db: db}, nil
 }
 
-func FromDB(db *badger.DB) storage.ManagedStorage {
-	return &badgerStorage{db}
+func FromDB(name string, db *badger.DB) storage.ManagedStorage {
+	return &badgerStorage{name: name, db: db}
+}
+
+func (t *badgerStorage) BeanName() string {
+	return t.name
 }
 
 func (t *badgerStorage) Destroy() error {

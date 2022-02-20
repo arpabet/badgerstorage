@@ -50,6 +50,7 @@ const (
 )
 
 type BadgerConfig struct {
+	Name       string
 	DataDir    string
 	Action     BadgerAction
 	StorageKey []byte // optional
