@@ -32,10 +32,10 @@ type badgerStorage struct {
 	db *badger.DB
 }
 
-func New(conf *BadgerConfig) (storage.ManagedStorage, error) {
+func New(name string, conf *BadgerConfig) (storage.ManagedStorage, error) {
 
-	if conf.Name == "" {
-		return nil, errors.New("empty storage name in config")
+	if name == "" {
+		return nil, errors.New("empty bean name")
 	}
 
 	db, err := OpenDatabase(conf)
@@ -43,7 +43,7 @@ func New(conf *BadgerConfig) (storage.ManagedStorage, error) {
 		return nil, wrapError(err)
 	}
 
-	return &badgerStorage{name: conf.Name, db: db}, nil
+	return &badgerStorage{name: name, db: db}, nil
 }
 
 func FromDB(name string, db *badger.DB) storage.ManagedStorage {
