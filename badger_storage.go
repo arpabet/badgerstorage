@@ -70,6 +70,10 @@ func (t *badgerStorage) CompareAndSet() *storage.CompareAndSetOperation {
 	return &storage.CompareAndSetOperation{Storage: t}
 }
 
+func (t *badgerStorage) Increment() *storage.IncrementOperation {
+	return &storage.IncrementOperation{Storage: t, Initial: 0, Delta: 1}
+}
+
 func (t *badgerStorage) Remove() *storage.RemoveOperation {
 	return &storage.RemoveOperation{Storage: t}
 }
@@ -101,6 +105,54 @@ func (t *badgerStorage) SetRaw(prefix, key, value []byte, ttlSeconds int) error 
 
 	return wrapError(txn.Commit())
 
+}
+
+func (t *badgerStorage) DoInTransaction(prefix, key []byte, cb func(entry *storage.RawEntry) bool) error {
+
+	txn := t.db.NewTransaction(true)
+	defer txn.Discard()
+
+	rawKey := append(prefix, key...)
+
+	rawEntry := &storage.RawEntry {
+		Key: rawKey,
+		Ttl: storage.NoTTL,
+		Version: 0,
+	}
+
+	item, err := txn.Get(rawKey)
+	if err != nil {
+		if err != badger.ErrKeyNotFound {
+			return err
+		}
+	} else {
+		rawEntry.Value, err = item.ValueCopy(nil)
+		if err != nil {
+			return errors.Errorf("badger fetch value failed: %v", err)
+		}
+		rawEntry.Ttl = getTtl(item)
+		rawEntry.Version = int64(item.Version())
+	}
+
+	if !cb(rawEntry) {
+		return ErrCanceled
+	}
+
+	entry := &badger.Entry{
+		Key: rawKey,
+		Value: rawEntry.Value,
+		UserMeta: byte(0x0)}
+
+	if rawEntry.Ttl > 0 {
+		entry.ExpiresAt = uint64(time.Now().Unix() + int64(rawEntry.Ttl))
+	}
+
+	err = txn.SetEntry(entry)
+	if err != nil {
+		return errors.Errorf("badger set entry error, %v", err)
+	}
+
+	return wrapError(txn.Commit())
 }
 
 func (t *badgerStorage) CompareAndSetRaw(prefix, key, value []byte, ttlSeconds int, version int64) (bool, error) {
@@ -160,10 +212,14 @@ func (t *badgerStorage) getImpl(prefix, key []byte, ttlPtr *int, versionPtr *int
 	item, err := txn.Get(append(prefix, key...))
 	if err != nil {
 
-		if err == badger.ErrKeyNotFound && !required {
-			return nil, nil
+		if err == badger.ErrKeyNotFound {
+			if required {
+				return nil, os.ErrNotExist
+			} else {
+				return nil, nil
+			}
 		} else {
-			return nil, os.ErrNotExist
+			return nil, errors.Errorf("badger get value failed: %v", err)
 		}
 
 	}

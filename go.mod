@@ -11,7 +11,7 @@ require (
 	github.com/golang/snappy v0.0.4 // indirect
 	github.com/klauspost/compress v1.14.2 // indirect
 	github.com/pkg/errors v0.9.1
-	go.arpabet.com/storage v1.3.0
+	go.arpabet.com/storage v1.4.1
 	go.uber.org/atomic v1.9.0 // indirect
 	go.uber.org/multierr v1.7.0 // indirect
 	go.uber.org/zap v1.20.0
