@@ -86,16 +86,16 @@ func (t *badgerStorage) Enumerate() *storage.EnumerateOperation {
 	return &storage.EnumerateOperation{Storage: t}
 }
 
-func (t *badgerStorage) GetRaw(prefix, key []byte, ttlPtr *int, versionPtr *int64, required bool) ([]byte, error) {
-	return t.getImpl(prefix, key, ttlPtr, versionPtr, required)
+func (t *badgerStorage) GetRaw(key []byte, ttlPtr *int, versionPtr *int64, required bool) ([]byte, error) {
+	return t.getImpl(key, ttlPtr, versionPtr, required)
 }
 
-func (t *badgerStorage) SetRaw(prefix, key, value []byte, ttlSeconds int) error {
+func (t *badgerStorage) SetRaw(key, value []byte, ttlSeconds int) error {
 
 	txn := t.db.NewTransaction(true)
 	defer txn.Discard()
 
-	entry := &badger.Entry{Key: append(prefix, key...), Value: value, UserMeta: byte(0x0)}
+	entry := &badger.Entry{Key: key, Value: value, UserMeta: byte(0x0)}
 
 	if ttlSeconds > 0 {
 		entry.ExpiresAt = uint64(time.Now().Unix() + int64(ttlSeconds))
@@ -111,20 +111,18 @@ func (t *badgerStorage) SetRaw(prefix, key, value []byte, ttlSeconds int) error 
 
 }
 
-func (t *badgerStorage) DoInTransaction(prefix, key []byte, cb func(entry *storage.RawEntry) bool) error {
+func (t *badgerStorage) DoInTransaction(key []byte, cb func(entry *storage.RawEntry) bool) error {
 
 	txn := t.db.NewTransaction(true)
 	defer txn.Discard()
 
-	rawKey := append(prefix, key...)
-
 	rawEntry := &storage.RawEntry {
-		Key: rawKey,
+		Key: key,
 		Ttl: storage.NoTTL,
 		Version: 0,
 	}
 
-	item, err := txn.Get(rawKey)
+	item, err := txn.Get(key)
 	if err != nil {
 		if err != badger.ErrKeyNotFound {
 			return err
@@ -143,7 +141,7 @@ func (t *badgerStorage) DoInTransaction(prefix, key []byte, cb func(entry *stora
 	}
 
 	entry := &badger.Entry{
-		Key: rawKey,
+		Key: key,
 		Value: rawEntry.Value,
 		UserMeta: byte(0x0)}
 
@@ -159,20 +157,18 @@ func (t *badgerStorage) DoInTransaction(prefix, key []byte, cb func(entry *stora
 	return wrapError(txn.Commit())
 }
 
-func (t *badgerStorage) CompareAndSetRaw(prefix, key, value []byte, ttlSeconds int, version int64) (bool, error) {
+func (t *badgerStorage) CompareAndSetRaw(key, value []byte, ttlSeconds int, version int64) (bool, error) {
 
 	txn := t.db.NewTransaction(true)
 	defer txn.Discard()
 
-	rawKey := append(prefix, key...)
-
-	entry := &badger.Entry{Key: rawKey, Value: value, UserMeta: byte(0x0)}
+	entry := &badger.Entry{Key: key, Value: value, UserMeta: byte(0x0)}
 
 	if ttlSeconds > 0 {
 		entry.ExpiresAt = uint64(time.Now().Unix() + int64(ttlSeconds))
 	}
 
-	item, err := txn.Get(rawKey)
+	item, err := txn.Get(key)
 	if err != nil {
 		if err == badger.ErrKeyNotFound {
 			if version != 0 { // for non exist item version is 0
@@ -195,12 +191,12 @@ func (t *badgerStorage) CompareAndSetRaw(prefix, key, value []byte, ttlSeconds i
 
 }
 
-func (t *badgerStorage) RemoveRaw(prefix, key []byte) error {
+func (t *badgerStorage) RemoveRaw(key []byte) error {
 
 	txn := t.db.NewTransaction(true)
 	defer txn.Discard()
 
-	err := txn.Delete(append(prefix, key...))
+	err := txn.Delete(key)
 
 	if err != nil {
 		return errors.Errorf("badger delete entry error, %v", err)
@@ -208,12 +204,12 @@ func (t *badgerStorage) RemoveRaw(prefix, key []byte) error {
 	return wrapError(txn.Commit())
 }
 
-func (t *badgerStorage) getImpl(prefix, key []byte, ttlPtr *int, versionPtr *int64, required bool) ([]byte, error) {
+func (t *badgerStorage) getImpl(key []byte, ttlPtr *int, versionPtr *int64, required bool) ([]byte, error) {
 
 	txn := t.db.NewTransaction(false)
 	defer txn.Discard()
 
-	item, err := txn.Get(append(prefix, key...))
+	item, err := txn.Get(key)
 	if err != nil {
 
 		if err == badger.ErrKeyNotFound {
