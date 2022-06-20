@@ -59,6 +59,12 @@ func (fn optionFunc) apply(r *badger.Options) {
 	fn(r)
 }
 
+// option that do nothing
+func WithNope() Option {
+	return optionFunc(func(opts *badger.Options) {
+	})
+}
+
 func WithReadOnly() Option {
 	return optionFunc(func(opts *badger.Options) {
 		opts.ReadOnly = true
