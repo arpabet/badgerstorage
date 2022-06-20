@@ -36,13 +36,13 @@ type badgerStorage struct {
 	db *badger.DB
 }
 
-func New(name string, conf *BadgerConfig) (storage.ManagedStorage, error) {
+func New(name string, dataDir string, options ...Option) (storage.ManagedStorage, error) {
 
 	if name == "" {
 		return nil, errors.New("empty bean name")
 	}
 
-	db, err := OpenDatabase(conf)
+	db, err := OpenDatabase(dataDir, options...)
 	if err != nil {
 		return nil, wrapError(err)
 	}
