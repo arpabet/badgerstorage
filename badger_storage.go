@@ -256,13 +256,7 @@ func (t *badgerStorage) EnumerateRaw(prefix, seek []byte, batchSize int, onlyKey
 	iter := txn.NewIterator(options)
 	defer iter.Close()
 
-	iter.Seek(seek)
-
-	if !iter.Valid() {
-		return nil
-	}
-
-	for ; iter.Valid(); iter.Next() {
+	for iter.Seek(seek); iter.Valid(); iter.Next() {
 
 		item := iter.Item()
 		key := item.Key()
@@ -298,37 +292,6 @@ func getTtl(item *badger.Item) int {
 		val = -1
 	}
 	return val
-}
-
-func (t *badgerStorage) FetchKeysRaw(prefix []byte, batchSize int) ([][]byte, error) {
-
-	var list [][]byte
-
-	options := badger.IteratorOptions{
-		PrefetchValues: false,
-		PrefetchSize:   batchSize,
-		Reverse:        false,
-		AllVersions:    false,
-		Prefix:         prefix,
-	}
-
-	txn := t.db.NewTransaction(false)
-	defer txn.Discard()
-
-	iter := txn.NewIterator(options)
-	defer iter.Close()
-
-	iter.Seek(prefix)
-
-	if iter.Valid() {
-		for ; iter.Valid(); iter.Next() {
-			item := iter.Item()
-			key := item.KeyCopy(nil)
-			list = append(list, key)
-		}
-	}
-
-	return list, nil
 }
 
 func (t *badgerStorage) Compact(discardRatio float64) error {
