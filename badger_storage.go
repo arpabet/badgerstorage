@@ -258,6 +258,10 @@ func (t *badgerStorage) EnumerateRaw(prefix, seek []byte, batchSize int, onlyKey
 
 	iter.Seek(seek)
 
+	if !iter.Valid() {
+		return nil
+	}
+
 	for ; iter.Valid(); iter.Next() {
 
 		item := iter.Item()
@@ -316,10 +320,12 @@ func (t *badgerStorage) FetchKeysRaw(prefix []byte, batchSize int) ([][]byte, er
 
 	iter.Seek(prefix)
 
-	for ; iter.Valid(); iter.Next() {
-		item := iter.Item()
-		key := item.KeyCopy(nil)
-		list = append(list, key)
+	if iter.Valid() {
+		for ; iter.Valid(); iter.Next() {
+			item := iter.Item()
+			key := item.KeyCopy(nil)
+			list = append(list, key)
+		}
 	}
 
 	return list, nil
