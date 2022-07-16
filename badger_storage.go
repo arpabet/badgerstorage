@@ -74,6 +74,8 @@ func (t *badgerStorage) GetRaw(key []byte, ttlPtr *int, versionPtr *int64, requi
 
 func (t *badgerStorage) SetRaw(key, value []byte, ttlSeconds int) error {
 
+TryAgain:
+
 	txn := t.db.NewTransaction(true)
 	defer txn.Discard()
 
@@ -89,7 +91,12 @@ func (t *badgerStorage) SetRaw(key, value []byte, ttlSeconds int) error {
 		return errors.Errorf("badger put entry error, %v", err)
 	}
 
-	return wrapError(txn.Commit())
+	err = txn.Commit()
+	if err == badger.ErrConflict {
+		goto TryAgain
+	}
+
+	return wrapError(err)
 
 }
 
@@ -148,6 +155,8 @@ TryAgain:
 
 func (t *badgerStorage) CompareAndSetRaw(key, value []byte, ttlSeconds int, version int64) (bool, error) {
 
+TryAgain:
+
 	txn := t.db.NewTransaction(true)
 	defer txn.Discard()
 
@@ -176,11 +185,18 @@ func (t *badgerStorage) CompareAndSetRaw(key, value []byte, ttlSeconds int, vers
 		return false, errors.Errorf("badger put entry error, %v", err)
 	}
 
-	return true, wrapError(txn.Commit())
+	err = txn.Commit()
+	if err == badger.ErrConflict {
+		goto TryAgain
+	}
+
+	return true, wrapError(err)
 
 }
 
 func (t *badgerStorage) RemoveRaw(key []byte) error {
+
+TryAgain:
 
 	txn := t.db.NewTransaction(true)
 	defer txn.Discard()
@@ -190,7 +206,13 @@ func (t *badgerStorage) RemoveRaw(key []byte) error {
 	if err != nil {
 		return errors.Errorf("badger delete entry error, %v", err)
 	}
-	return wrapError(txn.Commit())
+
+	err = txn.Commit()
+	if err == badger.ErrConflict {
+		goto TryAgain
+	}
+
+	return wrapError(err)
 }
 
 func (t *badgerStorage) getImpl(key []byte, ttlPtr *int, versionPtr *int64, required bool) ([]byte, error) {
