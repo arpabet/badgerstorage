@@ -95,6 +95,8 @@ func (t *badgerStorage) SetRaw(key, value []byte, ttlSeconds int) error {
 
 func (t *badgerStorage) DoInTransaction(key []byte, cb func(entry *storage.RawEntry) bool) error {
 
+TryAgain:
+
 	txn := t.db.NewTransaction(true)
 	defer txn.Discard()
 
@@ -136,7 +138,12 @@ func (t *badgerStorage) DoInTransaction(key []byte, cb func(entry *storage.RawEn
 		return errors.Errorf("badger set entry error, %v", err)
 	}
 
-	return wrapError(txn.Commit())
+	err = txn.Commit()
+	if err == badger.ErrConflict {
+		goto TryAgain
+	}
+
+	return wrapError(err)
 }
 
 func (t *badgerStorage) CompareAndSetRaw(key, value []byte, ttlSeconds int, version int64) (bool, error) {
